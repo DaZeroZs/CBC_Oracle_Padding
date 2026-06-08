@@ -1,0 +1,900 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CBC Padding Oracle Demo – Interaktive Unterrichtsdemo</title>
+  <style>
+    :root{
+      --bg:#0f172a; --panel:#111827; --panel2:#172033; --text:#e5e7eb; --muted:#9ca3af;
+      --accent:#38bdf8; --good:#22c55e; --bad:#ef4444; --warn:#f59e0b; --border:#334155;
+      --block:#1e293b; --byte:#0b1220;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(180deg,#0b1020,#111827);color:var(--text)}
+    header{padding:24px 28px;border-bottom:1px solid var(--border);background:rgba(15,23,42,.9);position:sticky;top:0;z-index:10}
+    header h1{margin:0 0 6px;font-size:24px}
+    header p{margin:0;color:var(--muted)}
+    main{display:grid;grid-template-columns:320px 1fr;gap:18px;padding:18px;max-width:1400px;margin:0 auto}
+    nav{position:sticky;top:110px;align-self:start;background:rgba(17,24,39,.88);border:1px solid var(--border);border-radius:14px;padding:12px}
+    nav button{width:100%;text-align:left;padding:10px 12px;margin:4px 0;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--text);cursor:pointer}
+    nav button:hover{background:#1f2937}
+    nav button.active{background:#082f49;border-color:#0ea5e9;color:#e0f2fe}
+    .content{min-width:0}
+    section{display:none;background:rgba(17,24,39,.86);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:18px}
+    section.active{display:block}
+    h2{margin-top:0;font-size:22px}
+    h3{margin:18px 0 8px;font-size:17px}
+    p,li{line-height:1.55}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .card{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:14px}
+    .controls{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}
+    button.primary, button.secondary{border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);cursor:pointer}
+    button.primary{background:#0369a1;border-color:#0284c7}
+    button.secondary{background:#1f2937}
+    button.primary:hover{background:#075985}
+    button.secondary:hover{background:#273244}
+    .note{border-left:4px solid var(--accent);background:#0b2536;padding:10px 12px;border-radius:8px;color:#dbeafe}
+    .warn{border-left-color:var(--warn);background:#2b2111;color:#fff7ed}
+    .danger{border-left-color:var(--bad);background:#2b1414;color:#fee2e2}
+    .good{border-left-color:var(--good);background:#102818;color:#dcfce7}
+    code,kbd{background:#0b1220;border:1px solid #233047;border-radius:6px;padding:1px 5px;color:#bfdbfe}
+    pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border:1px solid #233047;border-radius:12px;padding:12px;overflow:auto}
+    .blocks{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;margin:12px 0}
+    .block{background:var(--block);border:1px solid var(--border);border-radius:12px;padding:10px;min-width:180px}
+    .block-title{font-weight:700;margin-bottom:8px;color:#bae6fd}
+    .bytes{display:grid;grid-template-columns:repeat(16,28px);gap:4px}
+    .byte{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;background:var(--byte);border:1px solid #263348;border-radius:5px;text-align:center;padding:4px 0;font-size:12px;color:#d1d5db}
+    .byte.highlight{background:#164e63;border-color:#06b6d4;color:white}
+    .byte.good{background:#14532d;border-color:#22c55e;color:#dcfce7}
+    .byte.bad{background:#7f1d1d;border-color:#ef4444;color:#fee2e2}
+    .byte.warn{background:#78350f;border-color:#f59e0b;color:#fff7ed}
+    .arrow{font-size:28px;color:var(--accent);align-self:center;padding-top:34px}
+    table{border-collapse:collapse;width:100%;margin:10px 0}
+    th,td{border:1px solid var(--border);padding:8px;text-align:left;vertical-align:top}
+    th{background:#1f2937}
+    .pill{display:inline-block;border-radius:999px;padding:2px 8px;font-size:12px;border:1px solid var(--border);background:#111827;color:#d1d5db}
+    .status{font-weight:700}
+    .ok{color:#86efac}
+    .no{color:#fca5a5}
+    .mid{color:#fcd34d}
+    .stepbox{min-height:110px}
+    .small{font-size:13px;color:var(--muted)}
+    input,textarea,select{width:100%;background:#0b1220;color:var(--text);border:1px solid #334155;border-radius:10px;padding:10px}
+    textarea{min-height:90px}
+    .mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+    .footer{color:var(--muted);font-size:13px;padding:16px 0}
+
+    .task{margin-top:18px;background:#101827;border:1px solid #334155;border-radius:14px;padding:14px}
+    .task h3{margin-top:0;color:#fde68a}
+    .task textarea{margin-top:8px}
+    .task button{margin-top:8px}
+
+    @media(max-width:900px){main{grid-template-columns:1fr}nav{position:static}.grid{grid-template-columns:1fr}.bytes{grid-template-columns:repeat(8,28px)}}
+  </style>
+</head>
+<body>
+<header>
+  <h1>CBC Padding Oracle – interaktive Memory-Demo</h1>
+  <p>Eine rein lokale JavaScript-Simulation für Unterricht und Code-Review-Training. Es werden keine Netzwerkrequests gesendet.</p>
+</header>
+
+<main>
+  <nav id="nav"></nav>
+  <div class="content">
+
+    <section data-title="1. Zielbild">
+      <h2>1. Zielbild: Warum Padding Oracle gefährlich ist</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Unsicheres Muster</h3>
+          <pre>attacker-controlled token
+→ AES-CBC decrypt
+→ padding prüfen
+→ JSON/session parse
+→ unterschiedliche Fehler</pre>
+          <p class="danger note">Das Problem ist nicht nur CBC. Gefährlich ist <b>CBC ohne Authentifizierung</b> plus beobachtbare Unterschiede bei Fehlern.</p>
+        </div>
+        <div class="card">
+          <h3>Sicheres Muster</h3>
+          <pre>token empfangen
+→ MAC/Auth-Tag prüfen
+→ nur bei gültiger Authentizität decrypten
+→ parse
+→ Claims prüfen</pre>
+          <p class="good note">Bevor Plaintext verarbeitet wird, muss Integrität geprüft werden: AES-GCM, ChaCha20-Poly1305 oder Encrypt-then-MAC.</p>
+        </div>
+      </div>
+      <h3>Merksatz</h3>
+      <p><b>Wenn der Server anders reagiert, je nachdem ob CBC-Padding gültig ist, antwortet er wie ein Orakel.</b></p>
+      <p class="small">Diese Demo verwendet ein Toy-Cipher-Modell, damit man die Bytes didaktisch sehen kann. Es ist keine echte Kryptobibliothek und kein Angriffstool gegen reale Systeme.</p>
+    
+      <div class="task">
+        <h3>Aufgabe 1 – Risiko einstufen</h3>
+        <p>Du findest in einem Review diese Beschreibung:</p>
+ <pre>Ein Login-Cookie enthält AES-CBC-verschlüsselte JSON-Daten.
+Der Cookie-Wert kommt direkt aus dem Browser.
+Bei ungültigem Token gibt die Anwendung immer HTTP 401 zurück.
+Im Log steht intern entweder "bad padding", "json parse failed" oder "expired".</pre>
+ <p><b>Frage:</b> Ist das aus Sicht eines externen Angreifers bereits ein Padding Oracle? Begründe mit mindestens zwei Annahmen, die du noch prüfen musst.</p>
+ <textarea placeholder="Deine Bewertung..."></textarea>
+      </div>
+</section>
+
+    <section data-title="2. PKCS#7 Padding">
+      <h2>2. PKCS#7 Padding langsam erklärt</h2>
+      <p>Blockchiffren wie AES-CBC arbeiten blockweise. AES hat 16 Byte Blockgröße. Ist der letzte Plaintext-Block nicht voll, wird Padding ergänzt.</p>
+      <div class="controls">
+        <button class="primary" onclick="nextPadding()">Nächster Padding-Schritt</button>
+        <button class="secondary" onclick="resetPadding()">Zurücksetzen</button>
+      </div>
+      <div id="paddingText" class="card stepbox"></div>
+      <div id="paddingBlocks" class="blocks"></div>
+      <div class="note">
+        Bei PKCS#7 bedeutet ein letztes Byte <code>04</code>: die letzten 4 Bytes müssen alle <code>04</code> sein.
+        Ein letztes Byte <code>01</code>: nur das letzte Byte muss <code>01</code> sein.
+      </div>
+    
+      <div class="task">
+        <h3>Aufgabe 2 – Padding-Validierung anwenden</h3>
+        <p>Bewerte die folgenden letzten 8 Bytes eines entschlüsselten Blocks. Markiere jeweils <b>gültig</b> oder <b>ungültig</b> und begründe kurz.</p>
+ <pre>A) 9a 10 01 44 72 88 02 02
+B) 9a 10 01 44 72 88 02 03
+C) 9a 10 01 44 04 04 04 04
+D) 9a 10 01 44 00 00 00 00
+E) 9a 10 01 44 72 88 11 11</pre>
+ <p><b>Zusatz:</b> Welche dieser Varianten würde beim klassischen Angriff auf das letzte Byte als „valid padding“ reichen?</p>
+ <textarea placeholder="Deine Bewertung..."></textarea>
+      </div>
+
+</section>
+
+    <section data-title="3. AES Grundlagen">
+      <h2>3. AES Grundlagen: Was macht AES eigentlich?</h2>
+      <p><b>AES</b> ist eine symmetrische Blockchiffre. „Symmetrisch“ bedeutet: derselbe geheime Schlüssel wird zum Verschlüsseln und Entschlüsseln verwendet. „Blockchiffre“ bedeutet: AES verarbeitet immer einen festen Block von <b>16 Byte = 128 Bit</b>.</p>
+      <div class="grid">
+        <div class="card">
+          <h3>Wichtige Eckdaten</h3>
+          <table>
+            <tr><th>Eigenschaft</th><th>Bedeutung</th></tr>
+            <tr><td>Blockgröße</td><td>Immer 128 Bit, also 16 Byte.</td></tr>
+            <tr><td>Schlüssellängen</td><td>128, 192 oder 256 Bit.</td></tr>
+            <tr><td>Runden</td><td>10, 12 oder 14 Runden, abhängig von der Schlüssellänge.</td></tr>
+            <tr><td>Aufgabe</td><td>Aus einem 16-Byte-Plaintext-Block wird ein 16-Byte-Ciphertext-Block.</td></tr>
+          </table>
+        </div>
+        <div class="card">
+          <h3>Wichtig: AES ist nicht automatisch ein Tokenformat</h3>
+          <pre>AES allein:
+P → Eₖ(P) → C
+
+Für echte Nachrichten braucht man zusätzlich:
+- Betriebsmodus, z. B. CBC oder GCM
+- IV/Nonce-Regeln
+- Padding oder Streaming-Mechanik
+- Integritätsschutz</pre>
+        </div>
+      </div>
+
+      <h3>Merksatz</h3>
+      <p class="note">AES ist der Motor. Der Betriebsmodus ist das Getriebe. Fehler passieren oft nicht im AES-Motor, sondern im Modus, im Padding oder in der fehlenden Authentifizierung.</p>
+
+      <div class="blocks">
+        <div class="block">
+          <div class="block-title">Plaintext-Block P</div>
+          <div class="bytes">
+            <span class="byte">16</span><span class="byte">Byte</span><span class="byte">Input</span><span class="byte">für</span>
+            <span class="byte">AES</span><span class="byte">...</span><span class="byte">...</span><span class="byte">...</span>
+          </div>
+        </div>
+        <div class="arrow">Eₖ</div>
+        <div class="block">
+          <div class="block-title">Ciphertext-Block C</div>
+          <div class="bytes">
+            <span class="byte good">16</span><span class="byte good">Byte</span><span class="byte good">Output</span><span class="byte good">aus</span>
+            <span class="byte good">AES</span><span class="byte good">...</span><span class="byte good">...</span><span class="byte good">...</span>
+          </div>
+        </div>
+      </div>
+
+
+      <h3>Aufbau von AES: Die vier Kernoperationen</h3>
+      <p>AES ist intern kein einzelner mathematischer Schritt, sondern ein Rundenverfahren. Jede Runde mischt Bytes so, dass sich kleine Änderungen am Eingang stark im Ausgang verteilen.</p>
+      <div class="grid">
+        <div class="card">
+          <h3>1. SubBytes</h3>
+          <p>Jedes Byte wird über eine S-Box ersetzt. Das sorgt für <b>Nichtlinearität</b>. Ohne Nichtlinearität wäre die Chiffre algebraisch viel leichter angreifbar.</p>
+        </div>
+        <div class="card">
+          <h3>2. ShiftRows</h3>
+          <p>Zeilen im internen 4×4-Byte-State werden verschoben. Dadurch wandern Bytes an andere Positionen.</p>
+        </div>
+        <div class="card">
+          <h3>3. MixColumns</h3>
+          <p>Spalten werden mathematisch gemischt. Ein Byte beeinflusst danach mehrere Bytes. Das erzeugt <b>Diffusion</b>.</p>
+        </div>
+        <div class="card">
+          <h3>4. AddRoundKey</h3>
+          <p>Der aktuelle Runden-State wird mit einem aus dem Hauptschlüssel abgeleiteten Rundenschlüssel XOR-verknüpft.</p>
+        </div>
+      </div>
+
+      <h3>AES-State als 4×4-Byte-Matrix</h3>
+      <p>AES ordnet 16 Byte intern als Matrix an. Die Operationen verändern diese Matrix Runde für Runde.</p>
+      <table>
+        <tr><th>Byte 0</th><th>Byte 4</th><th>Byte 8</th><th>Byte 12</th></tr>
+        <tr><td>Byte 1</td><td>Byte 5</td><td>Byte 9</td><td>Byte 13</td></tr>
+        <tr><td>Byte 2</td><td>Byte 6</td><td>Byte 10</td><td>Byte 14</td></tr>
+        <tr><td>Byte 3</td><td>Byte 7</td><td>Byte 11</td><td>Byte 15</td></tr>
+      </table>
+
+
+      <h3>Warum AES ohne Schlüssel nicht sinnvoll „zurückrechenbar“ ist</h3>
+      <div class="grid">
+        <div class="card">
+          <h3>Mit Schlüssel: Umkehrbar</h3>
+          <p>AES ist keine Einweg-Hashfunktion. Mit dem richtigen Schlüssel ist jeder Schritt invertierbar:</p>
+          <pre>C = AES-Encrypt(key, P)
+P = AES-Decrypt(key, C)</pre>
+          <p>Das ist gewollt: Der legitime Empfänger soll entschlüsseln können.</p>
+        </div>
+        <div class="card">
+          <h3>Ohne Schlüssel: praktisch nicht zurückrechenbar</h3>
+          <p>Ohne Schlüssel sieht AES wie eine Pseudozufallspermutation aus. Für einen 128-Bit-Schlüssel gibt es <code>2^128</code> mögliche Schlüssel, für AES-256 sogar <code>2^256</code>.</p>
+          <p>Der praktische Angriff ist daher nicht „AES rückwärts rechnen“, sondern schlechte Verwendung: falscher Modus, fehlende Authentifizierung, Nonce/IV-Fehler oder ein Oracle.</p>
+        </div>
+      </div>
+
+      <h3>Wichtig für Padding Oracle</h3>
+      <p class="warn note">Beim Padding-Oracle-Angriff wird AES nicht gebrochen. Der Angreifer erfährt über Serverreaktionen Stück für Stück Informationen über den entschlüsselten Plaintext. Das ist ein Protokoll-/Implementierungsproblem, kein direkter Bruch von AES.</p>
+
+      <h3>Rundenstruktur vereinfacht</h3>
+      <pre>Initial:
+State = Plaintext XOR RoundKey0
+
+Normale Runde:
+SubBytes → ShiftRows → MixColumns → AddRoundKey
+
+Letzte Runde:
+SubBytes → ShiftRows → AddRoundKey</pre>
+
+      <p class="note">Für Padding Oracle ist der innere AES-Aufbau nicht die Schwachstelle. Wichtig ist: AES liefert nur blockweise Verschlüsselung. Ob daraus ein sicheres Tokenformat wird, entscheidet der Modus plus Integritätsschutz.</p>
+
+      <div class="task">
+        <h3>Aufgabe 3 – AES von Modus trennen</h3>
+        <p>Bewerte die Aussage:</p>
+        <pre>„Wir verwenden AES-256, also kann unser verschlüsselter Login-Token nicht manipuliert werden.“</pre>
+        <p><b>Frage:</b> Was ist an der Aussage richtig, was ist unvollständig oder falsch? Erkläre dabei ausdrücklich den Unterschied zwischen „AES ohne Schlüssel praktisch nicht zurückrechnen“ und „Token trotzdem manipulierbar“. Nenne mindestens drei zusätzliche Designfragen, die du stellen würdest.</p>
+        <textarea placeholder="Deine Bewertung..."></textarea>
+      </div>
+    </section>
+
+    <section data-title="4. CBC Verschlüsselung">
+      <h2>3. CBC Verschlüsselung: XOR mit vorherigem Block</h2>
+      <p>Bei CBC wird jeder Plaintext-Block zuerst mit dem vorherigen Ciphertext-Block XOR-verknüpft. Beim ersten Block wird der IV benutzt.</p>
+      <div class="controls">
+        <button class="primary" onclick="nextEnc()">Nächster Verschlüsselungs-Schritt</button>
+        <button class="secondary" onclick="resetEnc()">Zurücksetzen</button>
+      </div>
+      <div id="encText" class="card stepbox"></div>
+      <div id="encBlocks" class="blocks"></div>
+      <pre id="encFormula"></pre>
+    
+      <div class="task">
+        <h3>Aufgabe 4 – CBC-Verschlüsselung nachvollziehen</h3>
+        <p>Gegeben ist eine CBC-Verschlüsselung mit drei Plaintext-Blöcken:</p>
+        <pre>C0 = Eₖ(P0 XOR IV)
+C1 = Eₖ(P1 XOR C0)
+C2 = Eₖ(P2 XOR C1)</pre>
+        <p><b>Frage:</b> Warum reicht es nicht, nur die AES-Verschlüsselung <code>Eₖ(Pi)</code> zu betrachten? Erkläre, welche Rolle <code>IV</code>, <code>C0</code> und <code>C1</code> bei der Verschlüsselung der drei Blöcke spielen.</p>
+        <p><b>Zusatz:</b> Was passiert bei der Verschlüsselung, wenn zwei Nachrichten denselben ersten Plaintext-Block <code>P0</code>, aber unterschiedliche zufällige IVs haben?</p>
+        <textarea placeholder="Deine Erklärung..."></textarea>
+      </div>
+</section>
+
+    <section data-title="5. CBC Entschlüsselung">
+      <h2>4. CBC Entschlüsselung: Warum Manipulation möglich ist</h2>
+      <p>Beim Entschlüsseln gilt: <code>Pᵢ = Dₖ(Cᵢ) XOR Cᵢ₋₁</code>. Wer <code>Cᵢ₋₁</code> verändert, verändert kontrolliert den Plaintext von <code>Pᵢ</code>.</p>
+      <div class="controls">
+        <button class="primary" onclick="nextDec()">Nächster Entschlüsselungs-Schritt</button>
+        <button class="secondary" onclick="resetDec()">Zurücksetzen</button>
+      </div>
+      <div id="decText" class="card stepbox"></div>
+      <div id="decBlocks" class="blocks"></div>
+      <pre id="decFormula"></pre>
+      <p class="warn note">Diese Malleability ist der Kern: Ohne MAC/Auth-Tag kann ein Angreifer Ciphertext-Blöcke verändern und am Serververhalten lernen.</p>
+    
+      <div class="task">
+        <h3>Aufgabe 5 – Entschlüsselung und Manipulation</h3>
+        <p>Bei der CBC-Entschlüsselung gilt:</p>
+        <pre>P0 = Dₖ(C0) XOR IV
+P1 = Dₖ(C1) XOR C0
+P2 = Dₖ(C2) XOR C1</pre>
+        <p><b>Frage:</b> Welche Plaintext-Blöcke ändern sich beim Entschlüsseln, wenn ein Angreifer nur den IV manipuliert? Welche ändern sich, wenn er nur <code>C1</code> manipuliert? Erkläre den Unterschied zwischen „kontrolliert verändert“ und „unvorhersagbar zerstört“.</p>
+        <p><b>Zusatz:</b> Ein Angreifer kennt in <code>P2</code> die Zeichenfolge <code>admin=0;</code> und möchte daraus <code>admin=1;</code> machen. Das relevante Delta ist <code>0x30 XOR 0x31</code>. Auf welchen Block muss er das Delta anwenden?</p>
+        <textarea placeholder="Deine Analyse..."></textarea>
+      </div>
+</section>
+
+    <section data-title="6. Das Oracle">
+      <h2>5. Das Padding Oracle: Der Server verrät zu viel</h2>
+      <p>In dieser Simulation gibt der Server absichtlich unterschiedliche Antworten zurück. Genau das ist der didaktische Fehler.</p>
+      <div class="grid">
+        <div class="card">
+          <h3>Token testen</h3>
+          <label>Letztes Byte von C0 manipulieren</label>
+          <input id="oracleGuess" type="range" min="0" max="255" value="0" oninput="oracleManual()" />
+          <p>Guess: <code id="oracleGuessHex">00</code></p>
+          <button class="primary" onclick="oracleManual()">Oracle fragen</button>
+        </div>
+        <div class="card">
+          <h3>Server-Antwort</h3>
+          <div id="oracleResponse" class="stepbox"></div>
+        </div>
+      </div>
+      <div id="oracleBlocks" class="blocks"></div>
+      <h3>Was der Angreifer sieht</h3>
+      <table>
+        <tr><th>Antwort</th><th>Interpretation</th></tr>
+        <tr><td><span class="status no">padding error</span></td><td>Der manipulierte Plaintext endet nicht mit gültigem PKCS#7 Padding.</td></tr>
+        <tr><td><span class="status mid">json error</span></td><td>Padding war gültig, aber der Plaintext war semantisch noch kaputt.</td></tr>
+        <tr><td><span class="status ok">ok / wrong user / expired</span></td><td>Padding war gültig und der Plaintext kam bis in die Business-Logik.</td></tr>
+      </table>
+    
+      <div class="task">
+        <h3>Aufgabe 6 – Oracle-Kanal identifizieren</h3>
+        <p>Ein Team behauptet: „Wir zeigen keine Fehlermeldungen, also kann es kein Oracle sein.“ Du misst aber folgende Antworten auf manipulierte Tokens:</p>
+ <pre>Fall 1: HTTP 401,  21 ms,  gleiche Body-Länge
+Fall 2: HTTP 401, 110 ms,  gleiche Body-Länge
+Fall 3: HTTP 401, 115 ms,  zusätzlich wird ein Rate-Limit-Counter erhöht
+Fall 4: HTTP 401,  20 ms,  kein Rate-Limit-Counter</pre>
+ <p><b>Frage:</b> Welche beobachtbaren Kanäle könnten trotzdem ein Oracle bilden? Welche Messung würdest du wiederholen, bevor du eine Schwachstelle meldest?</p>
+ <textarea placeholder="Deine Analyse..."></textarea>
+      </div>
+</section>
+
+    <section data-title="7. Angriff Schritt für Schritt">
+      <h2>6. Padding-Oracle-Angriff: Ein Byte rekonstruieren</h2>
+      <p>Wir rekonstruieren didaktisch nur <b>ein Byte</b> des letzten Plaintext-Blocks. Der Trick: Wir verändern das letzte Byte des vorherigen Ciphertext-Blocks so lange, bis das Ziel-Padding <code>01</code> gültig wird.</p>
+      <div class="controls">
+        <button class="primary" onclick="attackStep()">Nächster Guess</button>
+        <button class="secondary" onclick="attackAuto()">Auto bis Treffer</button>
+        <button class="secondary" onclick="resetAttack()">Zurücksetzen</button>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <h3>Angriffsstatus</h3>
+          <div id="attackStatus"></div>
+        </div>
+        <div class="card">
+          <h3>Formel</h3>
+          <pre id="attackFormula"></pre>
+        </div>
+      </div>
+      <div id="attackBlocks" class="blocks"></div>
+      <p class="note">Wenn das Oracle „valid padding“ sagt, gilt: <code>D(C1)[15] XOR C0'[15] = 0x01</code>. Daraus folgt <code>D(C1)[15] = C0'[15] XOR 0x01</code>. Mit dem originalen <code>C0[15]</code> erhält man <code>P1[15]</code>.</p>
+    
+      <div class="task">
+        <h3>Aufgabe 7 – Byte-Rekonstruktion rechnen</h3>
+        <p>Beim Angriff auf das letzte Byte eines Blocks findest du gültiges Padding bei:</p>
+ <pre>Cprev'[15] = 0x8c
+Zielpadding = 0x01
+Original Cprev[15] = 0xf2</pre>
+ <p><b>Frage 1:</b> Berechne das Intermediate-Byte <code>I[15] = D(Ctarget)[15]</code>.</p>
+ <p><b>Frage 2:</b> Berechne das originale Plaintext-Byte <code>P[15]</code>.</p>
+ <p><b>Frage 3:</b> Warum kann ein Treffer bei <code>0x01</code> manchmal ein False Positive sein, wenn das ursprüngliche Padding bereits gültig war?</p>
+ <textarea placeholder="Deine Rechnung und Begründung..."></textarea>
+      </div>
+</section>
+
+    <section data-title="8. Code-Smells">
+      <h2>7. Code-Smells in echten Sprachen</h2>
+      <p>Diese Muster sind Kandidaten für Review. Nicht jeder Treffer ist automatisch verwundbar.</p>
+      <div class="grid">
+        <div class="card">
+          <h3>Node.js</h3>
+          <pre>const d = crypto.createDecipheriv("aes-256-cbc", key, iv);
+let p = d.update(token, "hex", "utf8");
+p += d.final("utf8");
+const obj = JSON.parse(p);</pre>
+        </div>
+        <div class="card">
+          <h3>Python</h3>
+          <pre>cipher = AES.new(key, AES.MODE_CBC, iv)
+pt = unpad(cipher.decrypt(token), AES.block_size)
+obj = json.loads(pt.decode())</pre>
+        </div>
+        <div class="card">
+          <h3>Java</h3>
+          <pre>Cipher c = Cipher.getInstance("AES/CBC/PKCS5Padding");
+byte[] pt = c.doFinal(ciphertext);
+mapper.readValue(pt, Token.class);</pre>
+        </div>
+        <div class="card">
+          <h3>C#</h3>
+          <pre>aes.Mode = CipherMode.CBC;
+aes.Padding = PaddingMode.PKCS7;
+var dec = aes.CreateDecryptor();
+// later: JsonSerializer.Deserialize(...)</pre>
+        </div>
+      </div>
+      <h3>Riskante Fehlerbehandlung</h3>
+      <pre>catch BadPaddingException → "bad padding"
+catch JsonException       → "bad json"
+catch AuthException       → "wrong user"</pre>
+      <p class="danger note">Unterschiedliche externe Fehler sind oft der Unterschied zwischen „nur unschön“ und „Oracle“.</p>
+    
+      <div class="task">
+        <h3>Aufgabe 8 – Code-Smell triagieren</h3>
+        <p>Du findest diese Pseudocode-Stelle:</p>
+ <pre>function readToken(token):
+    plaintext = aesCbcDecrypt(token)
+    payload = jsonParse(plaintext)
+    if payload.exp &lt; now:
+        return "expired"
+    if payload.user != currentUser:
+        return "wrong user"
+    return "ok"</pre>
+ <p><b>Frage:</b> Schreibe eine kurze Review-Notiz mit Einstufung <code>Confirmed</code>, <code>Probable</code> oder <code>Hypothesis</code>. Nenne außerdem zwei konkrete Code- oder Laufzeitbeweise, die du für <code>Confirmed</code> brauchst.</p>
+ <textarea placeholder="Deine Review-Notiz..."></textarea>
+      </div>
+</section>
+
+    <section data-title="9. Fix">
+      <h2>8. Sichere Gegenmaßnahmen</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Empfohlen: AEAD</h3>
+          <pre>AES-GCM
+ChaCha20-Poly1305
+AES-CCM</pre>
+          <p>Der Auth-Tag schützt Ciphertext und Metadaten. Manipulation wird erkannt, bevor Plaintext sinnvoll verarbeitet wird.</p>
+        </div>
+        <div class="card">
+          <h3>Legacy: Encrypt-then-MAC</h3>
+          <pre>token = iv || ciphertext || hmac
+
+1. HMAC konstantzeit prüfen
+2. nur bei gültigem HMAC decrypten
+3. dann parse/validieren</pre>
+        </div>
+      </div>
+      <h3>Extern immer gleich antworten</h3>
+      <pre>HTTP 401
+{"error":"invalid token"}</pre>
+      <p class="good note">Intern darfst du detailliert loggen. Extern sollte der Angreifer Padding-, JSON-, Ablauf- und Benutzerfehler nicht unterscheiden können.</p>
+    
+      <div class="task">
+        <h3>Aufgabe 9 – Migrationsdesign</h3>
+        <p>Ein Produkt hat 5 Millionen aktive Legacy-CBC-Tokens. Ein sofortiger Logout aller Nutzer ist politisch unerwünscht. Neue Tokens können aber geändert werden.</p>
+ <p><b>Frage:</b> Entwirf eine sichere Migration mit Versionierung. Beschreibe die Validierungsreihenfolge für <code>v1</code> Legacy-CBC und <code>v2</code> neue Tokens. Wo muss die generische Fehlerbehandlung sitzen?</p>
+ <textarea placeholder="Dein Migrationsdesign..."></textarea>
+      </div>
+</section>
+
+    <section data-title="10. GCM-Fix">
+      <h2>10. AES-GCM als Fix: Was passiert technisch?</h2>
+      <p><b>AES-GCM</b> ist nicht einfach „AES plus anderer Name“. Es kombiniert zwei Ideen:</p>
+      <div class="grid">
+        <div class="card">
+          <h3>1. Vertraulichkeit durch Counter Mode</h3>
+          <p>AES wird in GCM ähnlich wie ein Stromchiffre-Baustein genutzt. Aus <code>Nonce + Counter</code> werden mit AES Schlüsselstrom-Blöcke erzeugt. Diese werden mit dem Plaintext XOR-verknüpft.</p>
+          <pre>Keystreamᵢ = AESₖ(Nonce || Counterᵢ)
+Ciphertextᵢ = Plaintextᵢ XOR Keystreamᵢ</pre>
+          <p>Dadurch ist kein PKCS#7-Padding nötig. Auch Nachrichten mit beliebiger Länge können verarbeitet werden.</p>
+        </div>
+        <div class="card">
+          <h3>2. Integrität durch Auth-Tag</h3>
+          <p>GCM berechnet zusätzlich einen Authentifizierungswert über Ciphertext und AAD. Dieser Wert heißt <b>Tag</b>.</p>
+          <pre>Tag = Authₖ(AAD, Ciphertext, Längen)</pre>
+          <p>Wenn Ciphertext oder AAD verändert werden, passt der Tag nicht mehr. Die Entschlüsselung muss dann verworfen werden.</p>
+        </div>
+      </div>
+
+      <h3>Der Ablauf als Bild im Kopf</h3>
+      <div class="blocks">
+        <div class="block">
+          <div class="block-title">Nonce</div>
+          <div class="bytes">
+            <span class="byte">N</span><span class="byte">N</span><span class="byte">N</span><span class="byte">N</span>
+            <span class="byte">...</span><span class="byte">unique</span><span class="byte">per</span><span class="byte">key</span>
+          </div>
+        </div>
+        <div class="arrow">+</div>
+        <div class="block">
+          <div class="block-title">Counter</div>
+          <div class="bytes">
+            <span class="byte">00</span><span class="byte">00</span><span class="byte">00</span><span class="byte">01</span>
+            <span class="byte">00</span><span class="byte">00</span><span class="byte">00</span><span class="byte">02</span>
+          </div>
+        </div>
+        <div class="arrow">AESₖ</div>
+        <div class="block">
+          <div class="block-title">Keystream</div>
+          <div class="bytes">
+            <span class="byte good">ks</span><span class="byte good">ks</span><span class="byte good">ks</span><span class="byte good">ks</span>
+            <span class="byte good">...</span><span class="byte good">xor</span><span class="byte good">with</span><span class="byte good">P</span>
+          </div>
+        </div>
+      </div>
+
+      <h3>GCM-Verschlüsselung Schritt für Schritt</h3>
+      <table>
+        <tr><th>Schritt</th><th>Was passiert?</th><th>Warum ist das wichtig?</th></tr>
+        <tr>
+          <td>1. Nonce wählen</td>
+          <td>Für jede Verschlüsselung wird eine eindeutige Nonce verwendet.</td>
+          <td>Gleiche Nonce mit gleichem Schlüssel darf nicht erneut vorkommen.</td>
+        </tr>
+        <tr>
+          <td>2. Counter-Blöcke bilden</td>
+          <td>Aus Nonce und Zähler entstehen Eingaben für AES.</td>
+          <td>Jeder Block bekommt anderen Schlüsselstrom.</td>
+        </tr>
+        <tr>
+          <td>3. Plaintext XOR Keystream</td>
+          <td>Der Plaintext wird mit dem AES-erzeugten Schlüsselstrom XOR-verknüpft.</td>
+          <td>Das erzeugt den Ciphertext ohne Padding.</td>
+        </tr>
+        <tr>
+          <td>4. GHASH/Auth berechnen</td>
+          <td>Ciphertext, AAD und Längen werden authentifiziert.</td>
+          <td>Manipulationen werden erkennbar.</td>
+        </tr>
+        <tr>
+          <td>5. Tag anhängen</td>
+          <td>Das Ergebnis enthält Ciphertext und Tag.</td>
+          <td>Der Empfänger kann prüfen, ob etwas verändert wurde.</td>
+        </tr>
+      </table>
+
+      <h3>GCM-Entschlüsselung: Reihenfolge ist entscheidend</h3>
+      <pre>Empfänger bekommt:
+version || key_id || nonce || ciphertext || tag
+
+Dann:
+1. key anhand key_id auswählen
+2. AAD rekonstruieren, z. B. version || key_id || "login-token"
+3. Tag prüfen
+4. nur bei gültigem Tag Plaintext freigeben
+5. JSON/Claims prüfen</pre>
+
+      <p class="good note">Der entscheidende Unterschied zu CBC-Padding-Oracle: Manipulierte Daten sollen gar nicht bis zu Padding-Prüfung, JSON-Parsing oder Business-Logik kommen. Der Auth-Tag blockt sie vorher.</p>
+
+      <h3>Was ist AAD?</h3>
+      <p><b>AAD</b> bedeutet <b>Additional Authenticated Data</b>. Diese Daten werden nicht verschlüsselt, aber gegen Manipulation geschützt.</p>
+      <div class="grid">
+        <div class="card">
+          <h3>Gute AAD-Kandidaten</h3>
+          <pre>version = 2
+algorithm = "AES-256-GCM"
+key_id = "2026-01"
+context = "login-token"
+tenant = "example-org"</pre>
+          <p>Diese Werte müssen nicht geheim sein, dürfen aber nicht heimlich verändert werden.</p>
+        </div>
+        <div class="card">
+          <h3>Nicht als AAD, sondern in den Plaintext</h3>
+          <pre>user_id
+roles
+expiry
+issued_at
+session_id</pre>
+          <p>Diese Werte sind oft vertraulich oder sollen nicht offen im Token stehen.</p>
+        </div>
+      </div>
+
+      <h3>Warum GCM Padding Oracle verhindert</h3>
+      <table>
+        <tr><th>CBC ohne MAC</th><th>AES-GCM</th></tr>
+        <tr>
+          <td>Padding wird beim Decrypt geprüft.</td>
+          <td>Es gibt kein PKCS#7-Padding.</td>
+        </tr>
+        <tr>
+          <td>Manipulierter Ciphertext kann Parser/Business-Logik erreichen.</td>
+          <td>Manipulierter Ciphertext fällt bei der Tag-Prüfung raus.</td>
+        </tr>
+        <tr>
+          <td>Unterschiedliche Fehler können ein Oracle bilden.</td>
+          <td>Alle Auth-Fehler können generisch als <code>invalid token</code> behandelt werden.</td>
+        </tr>
+      </table>
+
+      <h3>Wichtigster GCM-Fehler: Nonce-Reuse</h3>
+      <p class="danger note">Bei AES-GCM darf dieselbe Nonce mit demselben Schlüssel nicht wiederverwendet werden. Wenn zwei Nachrichten denselben Schlüssel und dieselbe Nonce nutzen, wird derselbe Schlüsselstrom wiederverwendet. Das kann Informationen über die Plaintexts offenlegen und die Integrität gefährden.</p>
+
+      <h3>Merksatz</h3>
+      <p class="note"><b>CBC braucht zusätzlich Integrität. GCM bringt Integrität mit.</b> Aber GCM ist nur sicher, wenn Nonces eindeutig sind, Tags geprüft werden und Fehler extern nicht unterscheidbar sind.</p>
+    </section>
+
+
+
+    <section data-title="11. Mini-Quiz">
+      <h2>9. Mini-Quiz für Studenten</h2>
+      <div class="card">
+        <h3>Frage 1</h3>
+        <p>Ist AES-CBC automatisch unsicher?</p>
+        <button class="secondary" onclick="showAnswer(1)">Antwort anzeigen</button>
+        <p id="ans1" style="display:none" class="good note">Nein. Problematisch ist CBC ohne Integritätsschutz, besonders wenn Padding-Fehler beobachtbar sind.</p>
+      </div>
+      <div class="card">
+        <h3>Frage 2</h3>
+        <p>Warum reicht „wir zeigen keine Fehlermeldung an“ nicht immer?</p>
+        <button class="secondary" onclick="showAnswer(2)">Antwort anzeigen</button>
+        <p id="ans2" style="display:none" class="good note">Statuscodes, Redirects, Response-Länge, Timing, Logs oder unterschiedliche Seiteneffekte können trotzdem ein Oracle bilden.</p>
+      </div>
+      <div class="card">
+        <h3>Frage 3</h3>
+        <p>Was ist die robusteste Gegenmaßnahme für neue Tokenformate?</p>
+        <button class="secondary" onclick="showAnswer(3)">Antwort anzeigen</button>
+        <p id="ans3" style="display:none" class="good note">AEAD verwenden, zum Beispiel AES-GCM oder ChaCha20-Poly1305, und bei Fehlern generisch antworten.</p>
+      </div>
+      <div class="footer">Didaktische Demo. Keine echten Requests, keine externe Bibliothek, keine echte AES-Implementierung.</div>
+    
+      <div class="task">
+        <h3>Aufgabe 10 – Abschlussbewertung</h3>
+        <p>Du sollst für ein Security-Gremium eine knappe Bewertung schreiben.</p>
+ <p><b>Pflichtinhalte:</b> technische Ursache, realistische Auswirkung, notwendige Ausnutzungsbedingungen, empfohlene technische Maßnahme, Restrisiko nach Fix.</p>
+ <p><b>Frage:</b> Formuliere 5–7 Sätze. Vermeide Alarmismus, aber nenne klar, warum es relevant ist.</p>
+ <textarea placeholder="Deine Management-Bewertung..."></textarea>
+      </div>
+</section>
+
+  </div>
+</main>
+
+<script>
+/* -----------------------------
+   Helpers and toy CBC model
+   ----------------------------- */
+const BLOCK = 16;
+const keyStream = [0x21,0x73,0x8a,0x44,0x19,0xde,0x02,0x99,0xab,0x5c,0x66,0x10,0x2a,0xcd,0xef,0x37];
+// Toy block transform: reversible XOR with keystream, not real AES.
+function E(block){ return block.map((b,i)=>b ^ keyStream[i]); }
+function D(block){ return block.map((b,i)=>b ^ keyStream[i]); }
+function xor(a,b){ return a.map((x,i)=>x ^ b[i]); }
+function hex(n){ return n.toString(16).padStart(2,"0"); }
+function asciiBytes(s){ return [...new TextEncoder().encode(s)]; }
+function bytesToAscii(bs){ return new TextDecoder().decode(new Uint8Array(bs)); }
+function padPKCS7(bs){
+  let pad = BLOCK - (bs.length % BLOCK);
+  if(pad === 0) pad = BLOCK;
+  return bs.concat(Array(pad).fill(pad));
+}
+function unpadPKCS7(bs){
+  if(bs.length === 0 || bs.length % BLOCK !== 0) throw new Error("padding error");
+  const p = bs[bs.length-1];
+  if(p < 1 || p > BLOCK) throw new Error("padding error");
+  for(let i=0;i<p;i++){
+    if(bs[bs.length-1-i] !== p) throw new Error("padding error");
+  }
+  return bs.slice(0, bs.length-p);
+}
+function cbcEncrypt(plain, iv){
+  const padded = padPKCS7(plain);
+  const blocks = [];
+  let prev = iv;
+  for(let i=0;i<padded.length;i+=BLOCK){
+    const p = padded.slice(i,i+BLOCK);
+    const x = xor(p, prev);
+    const c = E(x);
+    blocks.push({p,x,c,prev});
+    prev = c;
+  }
+  return {iv, padded, blocks, ciphertext: blocks.flatMap(b=>b.c)};
+}
+function cbcDecrypt(ciphertext, iv){
+  const blocks = [];
+  let prev = iv;
+  for(let i=0;i<ciphertext.length;i+=BLOCK){
+    const c = ciphertext.slice(i,i+BLOCK);
+    const d = D(c);
+    const p = xor(d, prev);
+    blocks.push({c,d,p,prev});
+    prev = c;
+  }
+  const padded = blocks.flatMap(b=>b.p);
+  const plain = unpadPKCS7(padded);
+  return {blocks,padded,plain};
+}
+function renderBlock(title, arr, clsFn=()=>"", markIndex=-1){
+  const bytes = arr.map((b,i)=>`<span class="byte ${clsFn(b,i)} ${i===markIndex?'highlight':''}">${hex(b)}</span>`).join("");
+  return `<div class="block"><div class="block-title">${title}</div><div class="bytes">${bytes}</div></div>`;
+}
+function renderAsciiBlock(title, arr){
+  const bytes = arr.map((b)=> {
+    const ch = b>=32 && b<=126 ? String.fromCharCode(b) : ".";
+    return `<span class="byte">${ch}</span>`;
+  }).join("");
+  return `<div class="block"><div class="block-title">${title}</div><div class="bytes">${bytes}</div></div>`;
+}
+
+/* Fixed demo token */
+const demoPlain = asciiBytes('{"user":"bob","admin":false,"time":12345}');
+const demoIV = [0x10,0x44,0x23,0x81,0xaa,0x08,0x56,0x91,0x35,0x77,0x33,0x19,0xc0,0x55,0x12,0x90];
+const demo = cbcEncrypt(demoPlain, demoIV);
+const C0 = demo.blocks[0].c;
+const C1 = demo.blocks[1].c;
+const C2 = demo.blocks[2].c;
+
+/* -----------------------------
+   Nav
+   ----------------------------- */
+const sections = [...document.querySelectorAll("section")];
+const nav = document.getElementById("nav");
+sections.forEach((s,i)=>{
+  const btn = document.createElement("button");
+  btn.textContent = s.dataset.title;
+  btn.onclick = ()=>showSection(i);
+  nav.appendChild(btn);
+});
+function showSection(i){
+  sections.forEach(s=>s.classList.remove("active"));
+  [...nav.children].forEach(b=>b.classList.remove("active"));
+  sections[i].classList.add("active");
+  nav.children[i].classList.add("active");
+}
+showSection(0);
+
+/* -----------------------------
+   Padding section
+   ----------------------------- */
+let padStep=0;
+const padMessage = asciiBytes("HELLO CBC DEMO!");
+function resetPadding(){ padStep=0; drawPadding(); }
+function nextPadding(){ padStep=Math.min(padStep+1,4); drawPadding(); }
+function drawPadding(){
+  const padded = padPKCS7(padMessage);
+  const missing = BLOCK - padMessage.length;
+  const text = [
+    "Ausgangstext ist kürzer als 16 Byte. Der Block ist noch nicht voll.",
+    "PKCS#7 berechnet, wie viele Bytes fehlen.",
+    `Hier fehlen ${missing} Bytes. Deshalb wird der Wert ${hex(missing)} genau ${missing} mal angehängt.`,
+    "Jetzt ist der Block genau 16 Byte lang.",
+    "Beim Entschlüsseln schaut der Empfänger auf das letzte Byte und prüft, ob die Padding-Struktur stimmt."
+  ][padStep];
+  document.getElementById("paddingText").innerHTML = `<p>${text}</p>`;
+  let arr = padStep<2 ? padMessage.concat(Array(BLOCK-padMessage.length).fill(0)) : padded;
+  document.getElementById("paddingBlocks").innerHTML =
+    renderBlock("Block als Hex", arr, (b,i)=> i>=padMessage.length ? (padStep<2?"warn":"good") : "") +
+    renderAsciiBlock("Block als ASCII", arr);
+}
+drawPadding();
+
+/* -----------------------------
+   Encryption section
+   ----------------------------- */
+let encStep=0;
+function resetEnc(){ encStep=0; drawEnc(); }
+function nextEnc(){ encStep=Math.min(encStep+1,5); drawEnc(); }
+function drawEnc(){
+  const b = demo.blocks[0];
+  const texts = [
+    "Wir starten mit Plaintext-Block P0 und IV.",
+    "CBC nimmt P0 XOR IV. Dadurch wird gleicher Plaintext durch anderen IV anders.",
+    "Das Ergebnis wird durch die Blockchiffre verschlüsselt.",
+    "Das Ergebnis ist C0.",
+    "Für den nächsten Block wird C0 zum neuen XOR-Partner.",
+    "So entsteht eine Kette: Jeder Ciphertext-Block beeinflusst den nächsten Plaintext-Block."
+  ];
+  document.getElementById("encText").innerHTML = `<p>${texts[encStep]}</p>`;
+  let html = "";
+  if(encStep>=0) html += renderBlock("P0", b.p);
+  if(encStep>=0) html += `<div class="arrow">⊕</div>` + renderBlock("IV", demoIV);
+  if(encStep>=1) html += `<div class="arrow">=</div>` + renderBlock("P0 XOR IV", b.x, ()=>"highlight");
+  if(encStep>=2) html += `<div class="arrow">Eₖ</div>` + renderBlock("C0", b.c, ()=> encStep>=3?"good":"");
+  document.getElementById("encBlocks").innerHTML = html;
+  document.getElementById("encFormula").textContent =
+    encStep < 4 ? "C0 = Eₖ(P0 XOR IV)" : "C1 = Eₖ(P1 XOR C0)\nC2 = Eₖ(P2 XOR C1)\n...";
+}
+drawEnc();
+
+/* -----------------------------
+   Decryption section
+   ----------------------------- */
+let decStep=0;
+function resetDec(){ decStep=0; drawDec(); }
+function nextDec(){ decStep=Math.min(decStep+1,5); drawDec(); }
+function drawDec(){
+  const b = cbcDecrypt(demo.ciphertext, demoIV).blocks[1];
+  const texts = [
+    "Wir betrachten Block C1. Ziel ist der Plaintext P1.",
+    "Zuerst wird C1 mit der Blockchiffre entschlüsselt: Dₖ(C1).",
+    "Dann wird das Ergebnis mit dem vorherigen Ciphertext-Block C0 XOR-verknüpft.",
+    "Das Ergebnis ist P1.",
+    "Wenn jemand C0 verändert, ändert sich P1.",
+    "Genau diese Eigenschaft nutzt ein Padding Oracle aus."
+  ];
+  document.getElementById("decText").innerHTML = `<p>${texts[decStep]}</p>`;
+  let html = renderBlock("C1", C1);
+  if(decStep>=1) html += `<div class="arrow">Dₖ</div>` + renderBlock("Dₖ(C1)", b.d, ()=>"highlight");
+  if(decStep>=2) html += `<div class="arrow">⊕</div>` + renderBlock("C0", C0);
+  if(decStep>=3) html += `<div class="arrow">=</div>` + renderBlock("P1", b.p, ()=>"good");
+  document.getElementById("decBlocks").innerHTML = html;
+  document.getElementById("decFormula").textContent = "P1 = Dₖ(C1) XOR C0\nManipulation: P1' = Dₖ(C1) XOR C0'";
+}
+drawDec();
+
+/* -----------------------------
+   Oracle section
+   ----------------------------- */
+function vulnerableServer(modifiedC0LastByte){
+  const modC0 = C0.slice();
+  modC0[15] = modifiedC0LastByte;
+  const ct = modC0.concat(C1); // ask only about the second block as last block
+  try{
+    const result = cbcDecrypt(ct, demoIV);
+    const plain = bytesToAscii(result.plain);
+    try{
+      JSON.parse(plain);
+      return {kind:"ok", msg:"200 ok / business logic reached", plain, modC0};
+    }catch(e){
+      return {kind:"json", msg:"400 json error (padding was valid)", plain, modC0};
+    }
+  }catch(e){
+    return {kind:"pad", msg:"400 padding error", plain:null, modC0};
+  }
+}
+function oracleManual(){
+  const val = parseInt(document.getElementById("oracleGuess").value,10);
+  document.getElementById("oracleGuessHex").textContent = hex(val);
+  const r = vulnerableServer(val);
+  let cls = r.kind==="pad" ? "no" : r.kind==="json" ? "mid" : "ok";
+  document.getElementById("oracleResponse").innerHTML =
+    `<p class="status ${cls}">${r.msg}</p><p class="small">Der Angreifer sieht nur diese unterschiedliche Reaktion.</p>`;
+  document.getElementById("oracleBlocks").innerHTML =
+    renderBlock("C0' manipuliert", r.modC0, (b,i)=> i===15 ? (r.kind==="pad"?"bad":"good") : "", 15) +
+    renderBlock("C1 unverändert", C1);
+}
+oracleManual();
+
+/* -----------------------------
+   Attack section
+   ----------------------------- */
+let guess=0, found=null;
+const intermediate = D(C1);
+const trueP1 = xor(intermediate, C0);
+function resetAttack(){ guess=0; found=null; drawAttack(); }
+function attackStep(){
+  if(found!==null) return;
+  const candidateC0Last = guess;
+  const r = vulnerableServer(candidateC0Last);
+  if(r.kind !== "pad") found = candidateC0Last;
+  else guess = Math.min(guess+1,255);
+  drawAttack();
+}
+function attackAuto(){
+  while(found===null && guess<=255) attackStep();
+}
+function drawAttack(){
+  const current = found!==null ? found : guess;
+  const r = vulnerableServer(current);
+  const recoveredIntermediate = found!==null ? (found ^ 0x01) : null;
+  const recoveredPlain = found!==null ? (recoveredIntermediate ^ C0[15]) : null;
+  const status = found===null
+    ? `<p>Teste Guess für <code>C0'[15]</code>: <code>${hex(current)}</code></p><p class="status ${r.kind==="pad"?"no":"ok"}">${r.msg}</p>`
+    : `<p class="status ok">Treffer: gültiges Padding bei <code>C0'[15] = ${hex(found)}</code></p>
+       <p>Rekonstruiertes Intermediate-Byte: <code>${hex(recoveredIntermediate)}</code></p>
+       <p>Rekonstruiertes Plaintext-Byte: <code>${hex(recoveredPlain)}</code> ASCII: <code>${recoveredPlain>=32&&recoveredPlain<=126?String.fromCharCode(recoveredPlain):"."}</code></p>`;
+  document.getElementById("attackStatus").innerHTML = status;
+  document.getElementById("attackFormula").textContent =
+    found===null
+      ? "Suche C0'[15], sodass:\nD(C1)[15] XOR C0'[15] = 0x01"
+      : `D(C1)[15] = C0'[15] XOR 0x01\n           = ${hex(found)} XOR 01\n           = ${hex(recoveredIntermediate)}\n\nP1[15]    = D(C1)[15] XOR C0[15]\n           = ${hex(recoveredIntermediate)} XOR ${hex(C0[15])}\n           = ${hex(recoveredPlain)}`;
+  const mod = C0.slice(); mod[15] = current;
+  document.getElementById("attackBlocks").innerHTML =
+    renderBlock("C0 original", C0, (b,i)=>i===15?"warn":"", 15) +
+    renderBlock("C0' Guess", mod, (b,i)=>i===15?(found!==null?"good":(r.kind==="pad"?"bad":"good")):"", 15) +
+    renderBlock("P1 wahr", trueP1, (b,i)=>i===15?"highlight":"", 15);
+}
+drawAttack();
+
+function showAnswer(n){
+  document.getElementById("ans"+n).style.display = "block";
+}
+
+
+</script>
+</body>
+</html>
